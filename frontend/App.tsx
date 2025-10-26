@@ -1,81 +1,112 @@
-import React, { useState, useMemo } from 'react';
-import { Classroom, Reservation } from './types';
-import Header from './components/Header';
-import ClassroomList from './components/ClassroomList';
-import ScheduleCalendar from './components/ScheduleCalendar';
-import BookingModal from './components/BookingModal';
+// frontend/App.tsx
 
-const initialClassrooms: Classroom[] = [
-  { id: 'c1', name: '電腦教室 (A)', capacity: 40, color: '#3b82f6' },
-  { id: 'c2', name: '物理實驗室', capacity: 30, color: '#10b981' },
-  { id: 'c3', name: '音樂教室', capacity: 50, color: '#8b5cf6' },
-  { id: 'c4', name: '美術教室', capacity: 35, color: '#ef4444' },
-  { id: 'c5', name: '語言教室', capacity: 40, color: '#f97316' },
-];
+import React, { useState, useMemo, useEffect } from "react"; // 1. 匯入 useEffect
+import axios from "axios"; // 2. 匯入 axios
+import { Classroom, Reservation } from "./types";
+import Header from "./components/Header";
+import ClassroomList from "./components/ClassroomList";
+import ScheduleCalendar from "./components/ScheduleCalendar";
+import BookingModal from "./components/BookingModal";
 
-const initialReservations: Reservation[] = [
-  { id: 'r1', classroomId: 'c1', userName: '王老師', purpose: '程式設計課程', date: '2024-07-28', timeSlot: '第二節' },
-  { id: 'r2', classroomId: 'c2', userName: '陳同學', purpose: '光學實驗', date: '2024-07-28', timeSlot: '第六節' },
-  { id: 'r3', classroomId: 'c1', userName: '李同學', purpose: '專題討論', date: '2024-07-29', timeSlot: '第三節' },
-];
+// 3. 定義後端 API 的網址
+const API_URL = "http://localhost:3001/api";
 
-// Helper to get today's date in YYYY-MM-DD format
-const getTodayString = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = (today.getMonth() + 1).toString().padStart(2, '0');
-    const day = today.getDate().toString().padStart(2, '0');
-    return `${year}-${month}-${day}`;
-};
-
-initialReservations.push({
-    id: 'r_today_1',
-    classroomId: 'c1',
-    userName: '張三',
-    purpose: '資訊社社課',
-    date: getTodayString(),
-    timeSlot: '第三節'
-});
-
-initialReservations.push({
-    id: 'r_today_2',
-    classroomId: 'c3',
-    userName: '李四',
-    purpose: '合唱團練習',
-    date: getTodayString(),
-    timeSlot: '第五節'
-});
+// 4. 移除所有 initialClassrooms 和 initialReservations 的假資料
 
 type SelectedSlot = { date: Date; timeSlot: string };
 
 const App: React.FC = () => {
-  const [classrooms] = useState<Classroom[]>(initialClassrooms);
-  const [reservations, setReservations] = useState<Reservation[]>(initialReservations);
-  const [selectedClassroomId, setSelectedClassroomId] = useState<string>(classrooms[0].id);
+  // 5. 將 useState 的預設值改為空陣列
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+
+  // 6. 將 selectedClassroomId 預設值改為空字串
+  const [selectedClassroomId, setSelectedClassroomId] = useState<string>("");
+
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  const selectedClassroom = useMemo(() => 
-    classrooms.find(c => c.id === selectedClassroomId),
-    [classrooms, selectedClassroomId]
+
+  // 7. 【關鍵】使用 useEffect 在 component 載入時取得資料
+
+  // 載入教室列表
+  useEffect(() => {
+    const fetchClassrooms = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/classrooms`);
+
+        // ★ 注意：我們的 API 回傳的 id 是 "number"
+        // 但前端的 types.ts 和元件 期望 "string"
+        // 我們在這裡手動轉換，以避免修改所有子元件
+        const formattedClassrooms = response.data.map((c: any) => ({
+          ...c,
+          id: String(c.id), // 將 number 轉為 string
+        }));
+
+        setClassrooms(formattedClassrooms);
+
+        // 預設選取第一間教室
+        if (formattedClassrooms.length > 0) {
+          setSelectedClassroomId(formattedClassrooms[0].id);
+        }
+      } catch (error) {
+        console.error("Error fetching classrooms:", error);
+      }
+    };
+
+    fetchClassrooms();
+  }, []); // 空陣列 [] 表示這個 effect 只在"載入時"執行一次
+
+  // 載入預約記錄
+  useEffect(() => {
+    const fetchReservations = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/reservations`);
+
+        // 同樣，我們需要轉換 id 和 classroomId 為 string
+        const formattedReservations = response.data.map((r: any) => ({
+          ...r,
+          id: String(r.id),
+          classroomId: String(r.classroomId),
+        }));
+
+        setReservations(formattedReservations);
+      } catch (error) {
+        console.error("Error fetching reservations:", error);
+      }
+    };
+
+    fetchReservations();
+  }, []); // 空陣列 [] 表示這個 effect 只在"載入時"執行一次
+
+  // ----------------------------------------------------
+  // (以下函式暫時保持不變，我們在第七、八階段再回來修改)
+  // ----------------------------------------------------
+
+  const selectedClassroom = useMemo(
+    () => classrooms.find((c) => c.id === selectedClassroomId),
+    [classrooms, selectedClassroomId],
   );
-  
+
   const handleSelectClassroom = (id: string) => {
     setSelectedClassroomId(id);
-    setSelectedSlots([]); // Clear selection when changing classroom
+    setSelectedSlots([]);
   };
-  
+
   const handleDateChange = (newDate: Date) => {
     setCurrentDate(newDate);
   };
 
   const handleToggleSlot = (date: Date, timeSlot: string) => {
-    setSelectedSlots(prev => {
-      const exists = prev.some(s => s.date.getTime() === date.getTime() && s.timeSlot === timeSlot);
+    setSelectedSlots((prev) => {
+      const exists = prev.some(
+        (s) => s.date.getTime() === date.getTime() && s.timeSlot === timeSlot,
+      );
       if (exists) {
-        return prev.filter(s => !(s.date.getTime() === date.getTime() && s.timeSlot === timeSlot));
+        return prev.filter(
+          (s) =>
+            !(s.date.getTime() === date.getTime() && s.timeSlot === timeSlot),
+        );
       } else {
         return [...prev, { date, timeSlot }];
       }
@@ -96,21 +127,30 @@ const App: React.FC = () => {
     setIsModalOpen(false);
   };
 
-  const handleAddReservation = (details: { userName: string; purpose: string }) => {
+  // ★★★ 備註 ★★★
+  // 這個 handleAddReservation 函式目前只會更新"前端"的狀態。
+  // 它還沒有呼叫我們的 POST /api/reservations API。
+  // 我們將在「第七階段 (登入)」取得 Token 之後，再回來修改這個函式！
+  const handleAddReservation = (details: {
+    userName: string;
+    purpose: string;
+  }) => {
     if (selectedClassroomId && selectedSlots.length > 0) {
       const newReservations = selectedSlots.map((slot, index) => {
         const { date, timeSlot } = slot;
         return {
           id: `r${Date.now() + index}`,
           classroomId: selectedClassroomId,
-          userName: details.userName,
+          userName: details.userName, // 這裡也將在登入後改成登入者的姓名
           purpose: details.purpose,
-          date: `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`,
+          date: `${date.getFullYear()}-${(date.getMonth() + 1)
+            .toString()
+            .padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`,
           timeSlot: timeSlot,
         };
       });
-      
-      setReservations(prev => [...prev, ...newReservations]);
+
+      setReservations((prev) => [...prev, ...newReservations]);
       handleClearSelection();
       handleCloseModal();
     }
@@ -132,7 +172,7 @@ const App: React.FC = () => {
             <ScheduleCalendar
               classroom={selectedClassroom}
               date={currentDate}
-              reservations={reservations}
+              reservations={reservations} // 傳入從 API 取得的 reservations
               selectedSlots={selectedSlots}
               onToggleSlot={handleToggleSlot}
               onConfirmBooking={handleOpenModal}
