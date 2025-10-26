@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  # 1. 後端服務
+  backend:
+    build: ./backend # 使用 ./backend/Dockerfile 來打包
+    container_name: reservation-backend
+    volumes:
+      # ★★★ 關鍵：掛載資料庫 ★★★
+      # 將主機的 ./backend/db 資料夾 掛載到 容器的 /app/db 資料夾
+      # 這樣 SQLite 資料庫檔案就會被保存在你的電腦上，不會消失
+      - ./backend/db:/app/db
+    environment:
+      # 從 .env 檔案讀取 JWT_SECRET 並注入到容器中
+      - JWT_SECRET=${JWT_SECRET}
+      - NODE_ENV=production
+    # (我們不需要 ports，因為只有 frontend 需要存取它)
+
+  # 2. 前端服務
+  frontend:
+    build: ./frontend # 使用 ./frontend/Dockerfile 來打包
+    container_name: reservation-frontend
+    ports:
+      # ★★★ 將你電腦的 3000 埠 對應到 容器的 80 埠 (Nginx) ★★★
+      - "3000:80"
+    depends_on:
+      - backend # 確保 backend 服務啟動後，frontend 才啟動
+
+# (Docker Compose 會自動建立一個網路，讓 frontend 和 backend 互相溝通)

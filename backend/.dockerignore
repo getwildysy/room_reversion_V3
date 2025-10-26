@@ -1,0 +1,11 @@
+# 忽略 node_modules
+node_modules
+
+# 忽略 TypeScript 編譯後的檔案 (我們會在 Docker 內部編譯)
+dist
+
+# 忽略 .env 檔案 (我們會用 Docker Compose 注入)
+.env
+
+# 忽略資料庫檔案 (我們會用 Volume 掛載)
+db/*.sqlite3
