@@ -1,87 +1,69 @@
 // frontend/App.tsx
 
-import React, { useState, useMemo, useEffect } from "react"; // 1. 匯入 useEffect
-import axios from "axios"; // 2. 匯入 axios
+import React, { useState, useMemo, useEffect } from "react";
+// 1. 匯入我們新的 api 和 AuthContext
+import api from "./api";
+import { useAuth } from "./AuthContext";
 import { Classroom, Reservation } from "./types";
 import Header from "./components/Header";
 import ClassroomList from "./components/ClassroomList";
 import ScheduleCalendar from "./components/ScheduleCalendar";
 import BookingModal from "./components/BookingModal";
-
-// 3. 定義後端 API 的網址
-const API_URL = "http://localhost:3001/api";
-
-// 4. 移除所有 initialClassrooms 和 initialReservations 的假資料
+import AuthPage from "./pages/AuthPage"; // 2. 匯入登入頁面
 
 type SelectedSlot = { date: Date; timeSlot: string };
 
 const App: React.FC = () => {
-  // 5. 將 useState 的預設值改為空陣列
+  // 3. 從 AuthContext 取得使用者狀態
+  const { user, isLoading: isAuthLoading } = useAuth();
+
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
-
-  // 6. 將 selectedClassroomId 預設值改為空字串
   const [selectedClassroomId, setSelectedClassroomId] = useState<string>("");
-
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // 7. 【關鍵】使用 useEffect 在 component 載入時取得資料
+  // 4. 新增一個函式來載入資料
+  const fetchData = async () => {
+    try {
+      // 使用 Promise.all 同時發送兩個請求
+      const [classroomsRes, reservationsRes] = await Promise.all([
+        api.get("/classrooms"),
+        api.get("/reservations"),
+      ]);
 
-  // 載入教室列表
-  useEffect(() => {
-    const fetchClassrooms = async () => {
-      try {
-        const response = await axios.get(`${API_URL}/classrooms`);
-
-        // ★ 注意：我們的 API 回傳的 id 是 "number"
-        // 但前端的 types.ts 和元件 期望 "string"
-        // 我們在這裡手動轉換，以避免修改所有子元件
-        const formattedClassrooms = response.data.map((c: any) => ({
-          ...c,
-          id: String(c.id), // 將 number 轉為 string
-        }));
-
-        setClassrooms(formattedClassrooms);
-
-        // 預設選取第一間教室
-        if (formattedClassrooms.length > 0) {
-          setSelectedClassroomId(formattedClassrooms[0].id);
-        }
-      } catch (error) {
-        console.error("Error fetching classrooms:", error);
+      // 處理教室資料
+      const formattedClassrooms = classroomsRes.data.map((c: any) => ({
+        ...c,
+        id: String(c.id),
+      }));
+      setClassrooms(formattedClassrooms);
+      if (formattedClassrooms.length > 0 && !selectedClassroomId) {
+        setSelectedClassroomId(formattedClassrooms[0].id);
       }
-    };
 
-    fetchClassrooms();
-  }, []); // 空陣列 [] 表示這個 effect 只在"載入時"執行一次
+      // 處理預約資料
+      const formattedReservations = reservationsRes.data.map((r: any) => ({
+        ...r,
+        id: String(r.id),
+        classroomId: String(r.classroomId),
+      }));
+      setReservations(formattedReservations);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      // 在這裡可以加入錯誤處理，例如登出使用者
+    }
+  };
 
-  // 載入預約記錄
+  // 5. 修改 useEffect，只在 "登入成功後" (user 存在時) 才載入資料
   useEffect(() => {
-    const fetchReservations = async () => {
-      try {
-        const response = await axios.get(`${API_URL}/reservations`);
+    if (user) {
+      fetchData();
+    }
+  }, [user]); // 依賴 user 狀態
 
-        // 同樣，我們需要轉換 id 和 classroomId 為 string
-        const formattedReservations = response.data.map((r: any) => ({
-          ...r,
-          id: String(r.id),
-          classroomId: String(r.classroomId),
-        }));
-
-        setReservations(formattedReservations);
-      } catch (error) {
-        console.error("Error fetching reservations:", error);
-      }
-    };
-
-    fetchReservations();
-  }, []); // 空陣列 [] 表示這個 effect 只在"載入時"執行一次
-
-  // ----------------------------------------------------
-  // (以下函式暫時保持不變，我們在第七、八階段再回來修改)
-  // ----------------------------------------------------
+  // ... (handleSelectClassroom, handleDateChange, handleToggleSlot, ...) ...
 
   const selectedClassroom = useMemo(
     () => classrooms.find((c) => c.id === selectedClassroomId),
@@ -127,38 +109,74 @@ const App: React.FC = () => {
     setIsModalOpen(false);
   };
 
-  // ★★★ 備註 ★★★
-  // 這個 handleAddReservation 函式目前只會更新"前端"的狀態。
-  // 它還沒有呼叫我們的 POST /api/reservations API。
-  // 我們將在「第七階段 (登入)」取得 Token 之後，再回來修改這個函式！
-  const handleAddReservation = (details: {
-    userName: string;
-    purpose: string;
-  }) => {
-    if (selectedClassroomId && selectedSlots.length > 0) {
-      const newReservations = selectedSlots.map((slot, index) => {
-        const { date, timeSlot } = slot;
-        return {
-          id: `r${Date.now() + index}`,
-          classroomId: selectedClassroomId,
-          userName: details.userName, // 這裡也將在登入後改成登入者的姓名
-          purpose: details.purpose,
-          date: `${date.getFullYear()}-${(date.getMonth() + 1)
-            .toString()
-            .padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`,
-          timeSlot: timeSlot,
-        };
-      });
+  // 6. ★★★ 升級 handleAddReservation ★★★
+  //    現在它會呼叫真實的後端 API
+  const handleAddReservation = async (details: { purpose: string }) => {
+    if (!selectedClassroomId || selectedSlots.length === 0 || !user) {
+      alert("發生錯誤：缺少必要資訊。");
+      return;
+    }
 
-      setReservations((prev) => [...prev, ...newReservations]);
-      handleClearSelection();
+    // 準備要 POST 到 API 的資料
+    const reservationData = {
+      classroomId: Number(selectedClassroomId), // API 期望 number
+      purpose: details.purpose,
+      slots: selectedSlots.map((slot) => ({
+        date: `${slot.date.getFullYear()}-${(slot.date.getMonth() + 1)
+          .toString()
+          .padStart(2, "0")}-${slot.date
+          .getDate()
+          .toString()
+          .padStart(2, "0")}`,
+        timeSlot: slot.timeSlot,
+      })),
+    };
+
+    try {
+      // 使用我們設定好的 api 實例 (它會自動帶 Token)
+      await api.post("/reservations", reservationData);
+
+      // 預約成功
+      alert("預約成功！");
       handleCloseModal();
+      handleClearSelection();
+
+      // 重新載入預約資料，以顯示剛剛的新預約
+      const reservationsRes = await api.get("/reservations");
+      const formattedReservations = reservationsRes.data.map((r: any) => ({
+        ...r,
+        id: String(r.id),
+        classroomId: String(r.classroomId),
+      }));
+      setReservations(formattedReservations);
+    } catch (err: any) {
+      console.error("Error creating reservation:", err);
+      if (err.response && err.response.data && err.response.data.message) {
+        alert(`預約失敗： ${err.response.data.message}`);
+      } else {
+        alert("預約失敗，請稍後再試。");
+      }
     }
   };
 
+  // 7. 檢查 AuthContext 是否還在載入
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        載入中...
+      </div>
+    );
+  }
+
+  // 8. 如果沒有登入 (user 是 null)，就顯示登入頁面
+  if (!user) {
+    return <AuthPage />;
+  }
+
+  // 9. (如果已登入) 顯示主應用程式
   return (
     <div className="h-screen bg-gray-100 flex flex-col">
-      <Header />
+      <Header /> {/* 我們會在第八階段修改 Header 來顯示使用者名稱和登出按鈕 */}
       <main className="max-w-7xl mx-auto w-full flex-grow min-h-0 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row gap-6 h-full">
           <div className="md:w-1/3 lg:w-1/4 flex-shrink-0">
@@ -172,7 +190,7 @@ const App: React.FC = () => {
             <ScheduleCalendar
               classroom={selectedClassroom}
               date={currentDate}
-              reservations={reservations} // 傳入從 API 取得的 reservations
+              reservations={reservations}
               selectedSlots={selectedSlots}
               onToggleSlot={handleToggleSlot}
               onConfirmBooking={handleOpenModal}

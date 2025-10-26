@@ -1,4 +1,3 @@
-
 export interface Classroom {
   id: string;
   name: string;
@@ -13,4 +12,10 @@ export interface Reservation {
   purpose: string;
   date: string; // YYYY-MM-DD format
   timeSlot: string; // e.g., "第一節"
+}
+
+export interface User {
+  id: number;
+  username: string;
+  role: "user" | "admin";
 }
