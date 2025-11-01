@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import db from "../db";
 import { User } from "./authController"; // 我們可以重用在 authController 定義的 User 介面
+import bcrypt from "bcryptjs";
 
 // GET /api/users - 取得所有使用者列表 (限管理者)
 export const getAllUsers = async (req: Request, res: Response) => {
@@ -14,6 +15,46 @@ export const getAllUsers = async (req: Request, res: Response) => {
     res
       .status(500)
       .json({ message: "Error fetching users", error: err.message });
+  }
+};
+
+export const createUser = async (req: Request, res: Response) => {
+  try {
+    const { username, password, role } = req.body;
+
+    if (!username || !password || !role) {
+      return res
+        .status(400)
+        .json({ message: "Username, password, and role are required." });
+    }
+    if (role !== "admin" && role !== "user") {
+      return res.status(400).json({ message: "Invalid role specified." });
+    }
+
+    // 檢查使用者名稱是否已被使用
+    const existingUser = await db("users").where({ username }).first();
+    if (existingUser) {
+      return res.status(409).json({ message: "Username already exists." });
+    }
+
+    // 雜湊密碼
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(password, salt);
+
+    // 建立新使用者
+    const [newUser] = await db("users")
+      .insert({
+        username,
+        password_hash,
+        role: role,
+      })
+      .returning(["id", "username", "role"]);
+
+    res.status(201).json(newUser);
+  } catch (err: any) {
+    res
+      .status(500)
+      .json({ message: "Error creating user", error: err.message });
   }
 };
 
@@ -46,6 +87,33 @@ export const updateUserRole = async (req: Request, res: Response) => {
     res
       .status(500)
       .json({ message: "Error updating user role", error: err.message });
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ message: "Password is required." });
+    }
+
+    // 雜湊新密碼
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(password, salt);
+
+    const count = await db("users").where({ id }).update({ password_hash });
+
+    if (count > 0) {
+      res.status(200).json({ message: "Password reset successfully." });
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
+  } catch (err: any) {
+    res
+      .status(500)
+      .json({ message: "Error resetting password", error: err.message });
   }
 };
 

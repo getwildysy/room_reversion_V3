@@ -10,8 +10,14 @@ router.use(authenticateToken, isAdmin);
 // GET /api/users
 router.get("/", userController.getAllUsers);
 
+// POST /api/users (新增)
+router.post("/", userController.createUser);
+
 // PUT /api/users/:id/role
 router.put("/:id/role", userController.updateUserRole);
+
+// PUT /api/users/:id/password (新增)
+router.put("/:id/password", userController.resetPassword);
 
 // DELETE /api/users/:id
 router.delete("/:id", userController.deleteUser);
