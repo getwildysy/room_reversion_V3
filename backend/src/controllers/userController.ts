@@ -10,7 +10,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
     // ★★★ 修改：只顯示 'active' 的使用者 ★★★
     const users = await db("users")
       .where({ status: "active" }) // <-- 修改點
-      .select("id", "username", "role")
+      .select("id", "username", "role", "nickname")
       .orderBy("id");
     res.json(users);
   } catch (err: any) {
@@ -25,7 +25,7 @@ export const getPendingUsers = async (req: Request, res: Response) => {
   try {
     const users = await db("users")
       .where({ status: "pending" })
-      .select("id", "username", "role")
+      .select("id", "username", "role", "nickname")
       .orderBy("created_at");
     res.json(users);
   } catch (err: any) {
@@ -61,12 +61,13 @@ export const approveUser = async (req: Request, res: Response) => {
 
 export const createUser = async (req: Request, res: Response) => {
   try {
-    const { username, password, role } = req.body;
+    const { username, password, role, nickname } = req.body;
 
-    if (!username || !password || !role) {
-      return res
-        .status(400)
-        .json({ message: "Username, password, and role are required." });
+    if (!username || !password || !role || !nickname) {
+      return res.status(400);
+      return res.status(400).json({
+        message: "Username, password, role, and nickname are required.",
+      });
     }
     if (role !== "admin" && role !== "user") {
       return res.status(400).json({ message: "Invalid role specified." });
@@ -88,8 +89,10 @@ export const createUser = async (req: Request, res: Response) => {
         username,
         password_hash,
         role: role,
+        nickname,
+        status: "active",
       })
-      .returning(["id", "username", "role"]);
+      .returning(["id", "username", "role", "nickname"]);
 
     res.status(201).json(newUser);
   } catch (err: any) {
@@ -100,24 +103,40 @@ export const createUser = async (req: Request, res: Response) => {
 };
 
 // PUT /api/users/:id/role - 更新使用者角色 (限管理者)
-export const updateUserRole = async (req: Request, res: Response) => {
+export const updateUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { role } = req.body;
+    const { role, nickname } = req.body;
 
-    if (!role || (role !== "admin" && role !== "user")) {
-      return res.status(400).json({ message: "Invalid role specified." });
+    const updateData: { role?: string; nickname?: string } = {};
+
+    if (role) {
+      if (role !== "admin" && role !== "user") {
+        return res.status(400).json({ message: "Invalid role specified." });
+      }
+      if (Number(id) === req.user?.id) {
+        return res
+          .status(403)
+          .json({ message: "Cannot change your own role." });
+      }
+      updateData.role = role;
     }
 
-    // 防止管理者不小心移除自己的管理權限 (如果他是唯一管理員)
-    if (Number(id) === req.user?.id) {
-      return res.status(403).json({ message: "Cannot change your own role." });
+    if (nickname) {
+      if (nickname.trim() === "") {
+        return res.status(400).json({ message: "Nickname cannot be empty." });
+      }
+      updateData.nickname = nickname;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: "No update data provided." });
     }
 
     const [updatedUser] = await db("users")
       .where({ id })
-      .update({ role })
-      .returning(["id", "username", "role"]);
+      .update(updateData)
+      .returning(["id", "username", "role", "nickname"]);
 
     if (updatedUser) {
       res.json(updatedUser);
@@ -127,7 +146,7 @@ export const updateUserRole = async (req: Request, res: Response) => {
   } catch (err: any) {
     res
       .status(500)
-      .json({ message: "Error updating user role", error: err.message });
+      .json({ message: "Error updating user", error: err.message });
   }
 };
 

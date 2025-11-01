@@ -23,7 +23,7 @@ const Header: React.FC = () => {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
-                <span className="text-gray-700">你好, {user.username}</span>
+                <span className="text-gray-700">你好, {user.nickname}</span>
 
                 {user.role === "admin" && (
                   // 5. 將按鈕改成 Link，導向到 /admin

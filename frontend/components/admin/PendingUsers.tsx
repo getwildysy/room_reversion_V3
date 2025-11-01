@@ -48,6 +48,7 @@ const PendingUsers: React.FC<PendingUsersProps> = ({
             <tr className="border-b border-yellow-300">
               <th className="py-2">ID</th>
               <th className="py-2">使用者名稱</th>
+              <th className="py-2">暱稱</th>
               <th className="py-2 text-right">操作</th>
             </tr>
           </thead>
@@ -56,6 +57,7 @@ const PendingUsers: React.FC<PendingUsersProps> = ({
               <tr key={u.id} className="border-b border-yellow-200">
                 <td className="py-3">{u.id}</td>
                 <td className="py-3">{u.username}</td>
+                <td className="py-3">{u.nickname}</td>
                 <td className="py-3 text-right space-x-2">
                   <button
                     onClick={() => handleApproveUser(u.id)}

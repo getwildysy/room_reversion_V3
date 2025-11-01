@@ -25,7 +25,7 @@ export const getReservations = async (req: Request, res: Response) => {
       .select(
         "reservations.id",
         "reservations.classroom_id as classroomId",
-        "users.username as userName", // 我們從 users 表取得 userName
+        "nickname as userNickname", // 我們從 users 表取得 userName
         "reservations.purpose",
         "reservations.date",
         "reservations.time_slot as timeSlot",
@@ -105,23 +105,19 @@ export const createReservation = async (req: Request, res: Response) => {
 
     // 如果所有 insert 都成功，提交交易
     await trx.commit();
-    res
-      .status(201)
-      .json({
-        message: "Reservations created successfully.",
-        reservations: newReservations,
-      });
+    res.status(201).json({
+      message: "Reservations created successfully.",
+      reservations: newReservations,
+    });
   } catch (err: any) {
     // 如果中途有任何錯誤 (例如時段已被預約，觸發 unique 限制)
     // 復原所有已執行的操作
     await trx.rollback();
 
     if (err.message.includes("UNIQUE constraint failed")) {
-      res
-        .status(409)
-        .json({
-          message: "Error: One or more selected time slots are already booked.",
-        });
+      res.status(409).json({
+        message: "Error: One or more selected time slots are already booked.",
+      });
     } else {
       res
         .status(500)
@@ -150,12 +146,10 @@ export const deleteReservation = async (req: Request, res: Response) => {
       await db("reservations").where({ id: reservationId }).del();
       res.status(204).send(); // 成功刪除，回傳 No Content
     } else {
-      res
-        .status(403)
-        .json({
-          message:
-            "Forbidden: You do not have permission to delete this reservation.",
-        });
+      res.status(403).json({
+        message:
+          "Forbidden: You do not have permission to delete this reservation.",
+      });
     }
   } catch (err: any) {
     res

@@ -6,6 +6,7 @@ const AuthPage: React.FC = () => {
   const [isLoginView, setIsLoginView] = useState(true);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [nickname, setNickname] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const { login } = useAuth(); // 從 Context 取得 login 函式
@@ -17,6 +18,10 @@ const AuthPage: React.FC = () => {
     const endpoint = isLoginView ? "/auth/login" : "/auth/register";
 
     try {
+      const data = isLoginView
+        ? { username, password }
+        : { username, password, nickname }; // 註冊時才需要 nickname
+
       const response = await api.post(endpoint, { username, password });
 
       if (isLoginView) {
@@ -29,6 +34,7 @@ const AuthPage: React.FC = () => {
         alert("註冊成功！您的帳號正在等待管理者審核，請耐心等候。");
         setUsername("");
         setPassword("");
+        setNickname("");
       }
     } catch (err: any) {
       if (err.response && err.response.data && err.response.data.message) {
@@ -87,6 +93,28 @@ const AuthPage: React.FC = () => {
               required
             />
           </div>
+
+          {/* --- ★ 4. 新增 Nickname 欄位 (只在註冊時顯示) ★ --- */}
+          {!isLoginView && (
+            <div>
+              <label
+                htmlFor="nickname"
+                className="block text-sm font-medium text-gray-700"
+              >
+                暱稱
+              </label>
+              <input
+                type="text"
+                id="nickname"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                required
+                placeholder="請輸入姓名" // <-- ★ 5. 提示詞 ★
+              />
+            </div>
+          )}
+
           <div>
             <label
               htmlFor="password"

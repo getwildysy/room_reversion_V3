@@ -20,7 +20,7 @@ router.put("/:id/approve", userController.approveUser);
 router.post("/", userController.createUser);
 
 // PUT /api/users/:id/role
-router.put("/:id/role", userController.updateUserRole);
+router.put("/:id", userController.updateUser);
 
 // PUT /api/users/:id/password (新增)
 router.put("/:id/password", userController.resetPassword);

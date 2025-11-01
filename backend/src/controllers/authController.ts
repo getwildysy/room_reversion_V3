@@ -29,6 +29,7 @@ export interface User {
   password_hash: string;
   role: "user" | "admin"; // 角色可以是 'user' 或是 'admin'
   status: "pending" | "active";
+  nickname: string;
   created_at: string; // knex 預設會回傳時間戳的字串
   updated_at: string;
 }
@@ -36,12 +37,12 @@ export interface User {
 // POST /api/auth/register (註冊)
 export const register = async (req: Request, res: Response) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, nickname } = req.body;
 
-    if (!username || !password) {
+    if (!username || !password || !nickname) {
       return res
         .status(400)
-        .json({ message: "Username and password are required." });
+        .json({ message: "使用者名稱、密碼和暱稱皆為必填項。" });
     }
 
     // 檢查使用者名稱是否已被使用
@@ -59,9 +60,10 @@ export const register = async (req: Request, res: Response) => {
       .insert({
         username,
         password_hash,
+        nickname,
         role: "user", // 預設所有註冊者都是一般 'user'
       })
-      .returning(["id", "username", "role"]);
+      .returning(["id", "username", "role", "nickname"]);
 
     res
       .status(201)
@@ -109,6 +111,7 @@ export const login = async (req: Request, res: Response) => {
       id: user.id,
       username: user.username,
       role: user.role,
+      nickname: user.nickname,
     };
 
     // 簽發 Token，設定 1 小時後過期

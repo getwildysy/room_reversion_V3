@@ -35,6 +35,7 @@ export const initializeAdminAccount = async () => {
       password_hash: password_hash,
       role: "admin",
       status: "active", // ★ 自動設為 'active' (已啟用)
+      nickname: "系統管理員",
     });
 
     console.log(`[Server] 預設管理員 '${username}' 建立成功。`);
