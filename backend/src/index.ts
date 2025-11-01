@@ -24,6 +24,7 @@ app.use("/api/classrooms", classroomRoutes);
 app.use("/api/auth", authRoutes); // <-- 2. 檢查是否 "使用" 了 authRoutes 並掛載在 /api/auth
 app.use("/api/reservations", reservationRoutes);
 app.use("/api/users", userRoutes);
+
 app.listen(PORT, () => {
   console.log(`[Server] 伺服器正在監聽 http://localhost:${PORT}`);
 });
