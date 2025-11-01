@@ -28,6 +28,7 @@ export interface User {
   username: string;
   password_hash: string;
   role: "user" | "admin"; // 角色可以是 'user' 或是 'admin'
+  status: "pending" | "active";
   created_at: string; // knex 預設會回傳時間戳的字串
   updated_at: string;
 }
@@ -97,7 +98,12 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Invalid credentials." }); // 故意使用模糊訊息
     }
 
-    // 3. 產生 JWT
+    // --- ★★★ 3. 新增：檢查帳號狀態 ★★★ ---
+    if (user.status !== "active") {
+      return res.status(403).json({ message: "您的帳號正在等待管理者審核。" });
+    }
+
+    // 4. 產生 JWT
     // Token 中儲存的資料 (payload)
     const payload = {
       id: user.id,

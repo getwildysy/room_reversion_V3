@@ -16,17 +16,19 @@ const AdminPage: React.FC = () => {
 
   // 使用者管理 State
   const [users, setUsers] = useState<User[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<User[]>([]);
 
-  // 1. 新增：建立使用者表單的 State
+  // 建立使用者表單的 State
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState<"user" | "admin">("user");
 
   const fetchData = async () => {
     try {
-      const [classroomsRes, usersRes] = await Promise.all([
+      const [classroomsRes, usersRes, pendingUsersRes] = await Promise.all([
         api.get("/classrooms"),
-        api.get("/users"),
+        api.get("/users"), // (只會拿到 active)
+        api.get("/users/pending"), // (拿到 pending)
       ]);
 
       const formattedClassrooms = classroomsRes.data.map((c: any) => ({
@@ -35,6 +37,7 @@ const AdminPage: React.FC = () => {
       }));
       setClassrooms(formattedClassrooms);
       setUsers(usersRes.data);
+      setPendingUsers(pendingUsersRes.data);
     } catch (error) {
       console.error("Error fetching admin data:", error);
     }
@@ -49,7 +52,7 @@ const AdminPage: React.FC = () => {
     return <Navigate to="/" replace />;
   }
 
-  // --- 教室管理 (不變) ---
+  // --- 教室管理函式 ---
   const resetClassroomForm = () => {
     setName("");
     setCapacity(40);
@@ -67,7 +70,7 @@ const AdminPage: React.FC = () => {
         await api.post("/classrooms", classroomData);
       }
       resetClassroomForm();
-      fetchData();
+      fetchData(); // 重新載入所有資料
     } catch (error) {
       console.error("Error saving classroom:", error);
       alert("儲存失敗！");
@@ -78,7 +81,7 @@ const AdminPage: React.FC = () => {
     if (window.confirm("確定要刪除這間教室嗎？")) {
       try {
         await api.delete(`/classrooms/${id}`);
-        fetchData();
+        fetchData(); // 重新載入所有資料
       } catch (error) {
         console.error("Error deleting classroom:", error);
         alert("刪除失敗！");
@@ -93,12 +96,12 @@ const AdminPage: React.FC = () => {
     setColor(classroom.color);
   };
 
-  // --- 使用者管理 ---
+  // --- 使用者管理函式 ---
   const handleDeleteUser = async (userId: number) => {
     if (window.confirm("確定要刪除這位使用者嗎？")) {
       try {
         await api.delete(`/users/${userId}`);
-        fetchData();
+        fetchData(); // 重新載入所有資料
       } catch (err: any) {
         console.error("Error deleting user:", err);
         alert(`刪除失敗： ${err.response?.data?.message || "未知錯誤"}`);
@@ -113,7 +116,7 @@ const AdminPage: React.FC = () => {
     if (window.confirm(`確定要將這位使用者變更為 ${newRole} 嗎？`)) {
       try {
         await api.put(`/users/${userId}/role`, { role: newRole });
-        fetchData();
+        fetchData(); // 重新載入所有資料
       } catch (err: any) {
         console.error("Error changing user role:", err);
         alert(`變更失敗： ${err.response?.data?.message || "未知錯誤"}`);
@@ -121,7 +124,6 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  // 2. 新增：建立使用者表單的 Submit 函式
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUsername || !newPassword) {
@@ -146,7 +148,6 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  // 3. 新增：重設密碼函式
   const handleResetPassword = async (userId: number, username: string) => {
     const newPassword = window.prompt(`請輸入 "${username}" 的新密碼：`);
 
@@ -165,14 +166,69 @@ const AdminPage: React.FC = () => {
     // (如果 newPassword 是 null, 代表使用者按了 "取消")
   };
 
+  const handleApproveUser = async (userId: number) => {
+    if (window.confirm("確定要批准這位使用者嗎？")) {
+      try {
+        await api.put(`/users/${userId}/approve`);
+        fetchData(); // 重新載入所有列表
+      } catch (err: any) {
+        console.error("Error approving user:", err);
+        alert(`批准失敗： ${err.response?.data?.message || "未知錯誤"}`);
+      }
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">管理後台</h1>
+
+      {/* --- 待審核使用者區塊 --- */}
+      <div className="bg-yellow-50 p-6 rounded-lg shadow-md mb-8 border border-yellow-300">
+        <h2 className="text-2xl font-semibold mb-4 text-yellow-800">
+          待審核的使用者
+        </h2>
+        {pendingUsers.length === 0 ? (
+          <p className="text-gray-600">目前沒有待審核的使用者。</p>
+        ) : (
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-yellow-300">
+                <th className="py-2">ID</th>
+                <th className="py-2">使用者名稱</th>
+                <th className="py-2 text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingUsers.map((u) => (
+                <tr key={u.id} className="border-b border-yellow-200">
+                  <td className="py-3">{u.id}</td>
+                  <td className="py-3">{u.username}</td>
+                  <td className="py-3 text-right space-x-2">
+                    <button
+                      onClick={() => handleApproveUser(u.id)}
+                      className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
+                    >
+                      批准
+                    </button>
+                    <button
+                      onClick={() => handleDeleteUser(u.id)} // 拒絕 = 刪除
+                      className="px-3 py-1 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
+                    >
+                      拒絕
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {/* --- 教室管理區塊 --- */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">
         <h2 className="text-2xl font-semibold mb-4">教室管理</h2>
 
+        {/* 表單 */}
         <form onSubmit={handleClassroomSubmit} className="mb-6 border-b pb-6">
           <h3 className="text-xl font-semibold mb-4">
             {editingId ? "編輯教室" : "新增教室"}
@@ -246,15 +302,14 @@ const AdminPage: React.FC = () => {
           </div>
         </form>
 
+        {/* 教室列表 */}
         <h3 className="text-xl font-semibold mb-4">現有教室列表</h3>
-        {/* ... (教室列表的 ul ... map ... li) ... (不變) */}
         <ul className="space-y-3">
           {classrooms.map((room) => (
             <li
               key={room.id}
               className="flex items-center justify-between p-4 border rounded-lg"
             >
-              {/* ... (教室資訊) ... */}
               <div className="flex items-center space-x-3">
                 <div
                   className="w-6 h-6 rounded-full"
@@ -284,11 +339,11 @@ const AdminPage: React.FC = () => {
         </ul>
       </div>
 
-      {/* --- 使用者管理區塊 --- */}
+      {/* --- 已啟用使用者管理區塊 --- */}
       <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold mb-4">使用者管理</h2>
+        <h2 className="text-2xl font-semibold mb-4">已啟用使用者管理</h2>
 
-        {/* 4. 新增：建立使用者表單 */}
+        {/* 建立使用者表單 */}
         <form onSubmit={handleCreateUser} className="mb-6 border-b pb-6">
           <h3 className="text-xl font-semibold mb-4">建立新使用者</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -400,7 +455,6 @@ const AdminPage: React.FC = () => {
                         </button>
                       )}
 
-                      {/* 5. 新增：重設密碼按鈕 */}
                       <button
                         onClick={() => handleResetPassword(u.id, u.username)}
                         className="px-3 py-1 text-sm bg-gray-500 text-white rounded-md hover:bg-gray-600"

@@ -10,6 +10,12 @@ router.use(authenticateToken, isAdmin);
 // GET /api/users
 router.get("/", userController.getAllUsers);
 
+// GET /api/users/pending
+router.get("/pending", userController.getPendingUsers);
+
+// PUT /api/users/:id/approve
+router.put("/:id/approve", userController.approveUser);
+
 // POST /api/users (新增)
 router.post("/", userController.createUser);
 

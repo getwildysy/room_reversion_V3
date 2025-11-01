@@ -7,7 +7,9 @@ import bcrypt from "bcryptjs";
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
     // ★ 安全性：絕對不能回傳 password_hash
+    // ★★★ 修改：只顯示 'active' 的使用者 ★★★
     const users = await db("users")
+      .where({ status: "active" }) // <-- 修改點
       .select("id", "username", "role")
       .orderBy("id");
     res.json(users);
@@ -15,6 +17,45 @@ export const getAllUsers = async (req: Request, res: Response) => {
     res
       .status(500)
       .json({ message: "Error fetching users", error: err.message });
+  }
+};
+
+// --- ★★★ 新增：GET /api/users/pending - 取得 "待審核" 使用者列表 ★★★ ---
+export const getPendingUsers = async (req: Request, res: Response) => {
+  try {
+    const users = await db("users")
+      .where({ status: "pending" })
+      .select("id", "username", "role")
+      .orderBy("created_at");
+    res.json(users);
+  } catch (err: any) {
+    res
+      .status(500)
+      .json({ message: "Error fetching pending users", error: err.message });
+  }
+};
+
+// --- ★★★ 新增：PUT /api/users/:id/approve - 批准使用者 ★★★ ---
+export const approveUser = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const [approvedUser] = await db("users")
+      .where({ id })
+      .update({
+        status: "active",
+      })
+      .returning(["id", "username", "role", "status"]);
+
+    if (approvedUser) {
+      res.json(approvedUser);
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
+  } catch (err: any) {
+    res
+      .status(500)
+      .json({ message: "Error approving user", error: err.message });
   }
 };
 
@@ -118,6 +159,7 @@ export const resetPassword = async (req: Request, res: Response) => {
 };
 
 // DELETE /api/users/:id - 刪除使用者 (限管理者)
+// 注意：deleteUser 現在也可用於 "拒絕" 待審核的使用者
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

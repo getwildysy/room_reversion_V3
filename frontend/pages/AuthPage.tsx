@@ -25,8 +25,8 @@ const AuthPage: React.FC = () => {
         login(token, user); // 呼叫 context 的 login，這會自動存到 localStorage
       } else {
         // 註冊成功
-        alert("註冊成功！請切換到登入頁面進行登入。");
-        setIsLoginView(true); // 自動切換到登入
+        // ★★★ 修改：註冊成功後的提示訊息 ★★★
+        alert("註冊成功！您的帳號正在等待管理者審核，請耐心等候。");
         setUsername("");
         setPassword("");
       }

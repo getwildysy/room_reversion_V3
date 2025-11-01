@@ -14,6 +14,8 @@ services:
       # 從 .env 檔案讀取 JWT_SECRET 並注入到容器中
       - JWT_SECRET=${JWT_SECRET}
       - NODE_ENV=production
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     # (我們不需要 ports，因為只有 frontend 需要存取它)
 
   # 2. 前端服務
