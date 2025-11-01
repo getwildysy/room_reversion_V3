@@ -23,7 +23,7 @@ if (!JWT_SECRET) {
 // 取得 users 資料表型別 (雖然 Knex 會自動處理，但這樣寫更清晰)
 // type User = Knex.Tables["users"];
 
-interface User {
+export interface User {
   id: number;
   username: string;
   password_hash: string;

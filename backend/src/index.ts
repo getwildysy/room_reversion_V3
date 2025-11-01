@@ -5,6 +5,7 @@ import cors from "cors";
 import classroomRoutes from "./routes/classroomRoutes";
 import authRoutes from "./routes/authRoutes"; // <-- 1. 檢查是否 "匯入" 了 authRoutes
 import reservationRoutes from "./routes/reservationRoutes";
+import userRoutes from "./routes/userRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,7 +23,7 @@ app.get("/api", (req, res) => {
 app.use("/api/classrooms", classroomRoutes);
 app.use("/api/auth", authRoutes); // <-- 2. 檢查是否 "使用" 了 authRoutes 並掛載在 /api/auth
 app.use("/api/reservations", reservationRoutes);
-
+app.use("/api/users", userRoutes);
 app.listen(PORT, () => {
   console.log(`[Server] 伺服器正在監聽 http://localhost:${PORT}`);
 });

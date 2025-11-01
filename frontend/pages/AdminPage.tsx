@@ -1,45 +1,55 @@
 import React, { useState, useEffect } from "react";
-import { Classroom } from "../types";
+import { Classroom, User } from "../types"; // 1. 匯入 User 型別
 import api from "../api";
 import { useAuth } from "../AuthContext";
-import { Navigate } from "react-router-dom"; // 用於權限導向
+import { Navigate } from "react-router-dom";
 
-// 用於管理教室列表和表單
 const AdminPage: React.FC = () => {
   const { user } = useAuth();
-  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
 
-  // 用於新增/編輯教室的表單狀態
+  // 教室管理的 State
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [name, setName] = useState("");
   const [capacity, setCapacity] = useState(40);
   const [color, setColor] = useState("#3b82f6");
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // 載入所有教室
-  const fetchClassrooms = async () => {
+  // 2. 新增：使用者管理的 State
+  const [users, setUsers] = useState<User[]>([]);
+
+  // 3. 修改：同時載入教室和使用者
+  const fetchData = async () => {
     try {
-      const response = await api.get("/classrooms");
-      // 同樣，我們需要轉換 id
-      const formatted = response.data.map((c: any) => ({
+      const [classroomsRes, usersRes] = await Promise.all([
+        api.get("/classrooms"),
+        api.get("/users"), // 呼叫新的 API
+      ]);
+
+      // 處理教室
+      const formattedClassrooms = classroomsRes.data.map((c: any) => ({
         ...c,
         id: String(c.id),
       }));
-      setClassrooms(formatted);
+      setClassrooms(formattedClassrooms);
+
+      // 處理使用者
+      setUsers(usersRes.data);
     } catch (error) {
-      console.error("Error fetching classrooms:", error);
+      console.error("Error fetching admin data:", error);
     }
   };
 
   useEffect(() => {
-    fetchClassrooms();
+    fetchData();
   }, []);
 
-  // 權限檢查：如果不是 admin，自動導向回首頁
+  // 權限檢查 (不變)
   if (user?.role !== "admin") {
     alert("權限不足！");
     return <Navigate to="/" replace />;
   }
 
+  // --- 教室管理 (不變) ---
   const resetForm = () => {
     setName("");
     setCapacity(40);
@@ -47,35 +57,28 @@ const AdminPage: React.FC = () => {
     setEditingId(null);
   };
 
-  // 處理表單提交 (新增或更新)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // API 需要 number 格式的 capacity
     const classroomData = { name, capacity: Number(capacity), color };
-
     try {
       if (editingId) {
-        // 更新 (PUT /api/classrooms/:id)
         await api.put(`/classrooms/${editingId}`, classroomData);
       } else {
-        // 新增 (POST /api/classrooms)
         await api.post("/classrooms", classroomData);
       }
       resetForm();
-      fetchClassrooms(); // 重新載入列表
+      fetchData(); // 重新載入所有資料
     } catch (error) {
       console.error("Error saving classroom:", error);
       alert("儲存失敗！");
     }
   };
 
-  // 刪除教室
   const handleDelete = async (id: string) => {
-    if (window.confirm("確定要刪除這間教室嗎？所有相關預約將一併刪除。")) {
+    if (window.confirm("確定要刪除這間教室嗎？")) {
       try {
         await api.delete(`/classrooms/${id}`);
-        fetchClassrooms(); // 重新載入列表
+        fetchData(); // 重新載入所有資料
       } catch (error) {
         console.error("Error deleting classroom:", error);
         alert("刪除失敗！");
@@ -83,7 +86,6 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  // 載入資料到表單中以進行編輯
   const handleEdit = (classroom: Classroom) => {
     setEditingId(classroom.id);
     setName(classroom.name);
@@ -91,95 +93,118 @@ const AdminPage: React.FC = () => {
     setColor(classroom.color);
   };
 
+  // --- 4. 新增：使用者管理函式 ---
+  const handleDeleteUser = async (userId: number) => {
+    if (window.confirm("確定要刪除這位使用者嗎？")) {
+      try {
+        await api.delete(`/users/${userId}`);
+        fetchData(); // 重新載入所有資料
+      } catch (err: any) {
+        console.error("Error deleting user:", err);
+        alert(`刪除失敗： ${err.response?.data?.message || "未知錯誤"}`);
+      }
+    }
+  };
+
+  const handleChangeRole = async (
+    userId: number,
+    newRole: "user" | "admin",
+  ) => {
+    if (window.confirm(`確定要將這位使用者變更為 ${newRole} 嗎？`)) {
+      try {
+        await api.put(`/users/${userId}/role`, { role: newRole });
+        fetchData(); // 重新載入所有資料
+      } catch (err: any) {
+        console.error("Error changing user role:", err);
+        alert(`變更失敗： ${err.response?.data?.message || "未知錯誤"}`);
+      }
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">管理後台 - 教室管理</h1>
+      <h1 className="text-3xl font-bold mb-6">管理後台</h1>
 
-      {/* 新增/編輯表單 */}
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-6 rounded-lg shadow-md mb-8"
-      >
-        <h2 className="text-2xl font-semibold mb-4">
-          {editingId ? "編輯教室" : "新增教室"}
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* --- 修正 1: 教室名稱 --- */}
-          <div>
-            <label
-              htmlFor="classroomName"
-              className="block text-sm font-medium text-gray-700"
-            >
-              教室名稱
-            </label>
-            <input
-              id="classroomName"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
-              required
-            />
-          </div>
+      {/* --- 教室管理區塊 (包含無障礙修正) --- */}
+      <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+        <h2 className="text-2xl font-semibold mb-4">教室管理</h2>
 
-          {/* --- 修正 2: 容納人數 --- */}
-          <div>
-            <label
-              htmlFor="classroomCapacity"
-              className="block text-sm font-medium text-gray-700"
-            >
-              容納人數
-            </label>
-            <input
-              id="classroomCapacity"
-              type="number"
-              value={capacity}
-              onChange={(e) => setCapacity(Number(e.target.value))}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
-              required
-            />
+        {/* 表單 */}
+        <form onSubmit={handleSubmit} className="mb-6 border-b pb-6">
+          <h3 className="text-xl font-semibold mb-4">
+            {editingId ? "編輯教室" : "新增教室"}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label
+                htmlFor="classroomName"
+                className="block text-sm font-medium text-gray-700"
+              >
+                教室名稱
+              </label>
+              <input
+                id="classroomName"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                required
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="classroomCapacity"
+                className="block text-sm font-medium text-gray-700"
+              >
+                容納人數
+              </label>
+              <input
+                id="classroomCapacity"
+                type="number"
+                value={capacity}
+                onChange={(e) => setCapacity(Number(e.target.value))}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                required
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="classroomColor"
+                className="block text-sm font-medium text-gray-700"
+              >
+                代表顏色
+              </label>
+              <input
+                id="classroomColor"
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="mt-1 block w-full h-10 border border-gray-300 rounded-md"
+                title="選擇教室代表色"
+              />
+            </div>
           </div>
-
-          {/* --- 修正 3: 代表顏色 --- */}
-          <div>
-            <label
-              htmlFor="classroomColor"
-              className="block text-sm font-medium text-gray-700"
-            >
-              代表顏色
-            </label>
-            <input
-              id="classroomColor"
-              type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              className="mt-1 block w-full h-10 border border-gray-300 rounded-md"
-              title="選擇教室代表色"
-            />
-          </div>
-        </div>
-        <div className="mt-6 flex justify-end space-x-3">
-          {editingId && (
+          <div className="mt-6 flex justify-end space-x-3">
+            {editingId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+              >
+                取消編輯
+              </button>
+            )}
             <button
-              type="button"
-              onClick={resetForm}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
-              取消編輯
+              {editingId ? "儲存變更" : "確認新增"}
             </button>
-          )}
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            {editingId ? "儲存變更" : "確認新增"}
-          </button>
-        </div>
-      </form>
+          </div>
+        </form>
 
-      {/* 教室列表 */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold mb-4">現有教室列表</h2>
+        {/* 教室列表 */}
+        <h3 className="text-xl font-semibold mb-4">現有教室列表</h3>
         <ul className="space-y-3">
           {classrooms.map((room) => (
             <li
@@ -213,6 +238,68 @@ const AdminPage: React.FC = () => {
             </li>
           ))}
         </ul>
+      </div>
+
+      {/* --- 5. 新增：使用者管理區塊 --- */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h2 className="text-2xl font-semibold mb-4">使用者管理</h2>
+        <table className="w-full text-left">
+          <thead>
+            <tr className="border-b">
+              <th className="py-2">ID</th>
+              <th className="py-2">使用者名稱</th>
+              <th className="py-2">角色</th>
+              <th className="py-2 text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.id} className="border-b">
+                <td className="py-3">{u.id}</td>
+                <td className="py-3">{u.username}</td>
+                <td className="py-3">
+                  <span
+                    className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      u.role === "admin"
+                        ? "bg-green-200 text-green-800"
+                        : "bg-gray-200 text-gray-800"
+                    }`}
+                  >
+                    {u.role}
+                  </span>
+                </td>
+                <td className="py-3 text-right space-x-2">
+                  {/* 防止管理者操作自己 */}
+                  {user && user.id !== u.id && (
+                    <>
+                      {u.role === "user" ? (
+                        <button
+                          onClick={() => handleChangeRole(u.id, "admin")}
+                          className="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                        >
+                          設為管理員
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleChangeRole(u.id, "user")}
+                          className="px-3 py-1 text-sm bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
+                        >
+                          設為使用者
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteUser(u.id)}
+                        className="px-3 py-1 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
+                      >
+                        刪除
+                      </button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
