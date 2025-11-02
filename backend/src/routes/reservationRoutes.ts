@@ -9,6 +9,15 @@ const router = Router();
 // GET /api/reservations - 取得所有預約 (開放)
 router.get("/", reservationController.getReservations);
 
+// --- ★ 新增：管理者匯出路由 ★ ---
+router.get(
+  "/export",
+  authenticateToken,
+  isAdmin,
+  reservationController.exportReservations,
+);
+// ------------------------------------
+
 // --- ★ 新增：管理者批次預約路由 ★ ---
 // POST /api/reservations/batch
 router.post(

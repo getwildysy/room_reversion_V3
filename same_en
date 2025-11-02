@@ -1,0 +1,6 @@
+JWT_SECRET=
+
+# --- 預設管理員帳號 ---
+# 在資料庫為空時，系統將自動建立此帳號
+ADMIN_USERNAME=
+ADMIN_PASSWORD=
