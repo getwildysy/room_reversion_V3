@@ -25,6 +25,7 @@ export const getReservations = async (req: Request, res: Response) => {
       .select(
         "reservations.id",
         "reservations.classroom_id as classroomId",
+        "reservations.user_id as userId",
         "nickname as userNickname", // 我們從 users 表取得 userName
         "reservations.purpose",
         "reservations.date",

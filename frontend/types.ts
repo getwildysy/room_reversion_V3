@@ -8,6 +8,7 @@ export interface Classroom {
 export interface Reservation {
   id: string;
   classroomId: string;
+  userId: number;
   userNickname: string;
   purpose: string;
   date: string; // YYYY-MM-DD format

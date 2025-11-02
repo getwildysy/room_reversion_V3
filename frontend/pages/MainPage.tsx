@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import api from "../api";
 import { Classroom, Reservation } from "../types";
 import ClassroomList from "../components/ClassroomList";
@@ -15,37 +15,47 @@ const MainPage: React.FC = () => {
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // 載入資料 (這個 useEffect 會在 MainPage 載入時執行)
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [classroomsRes, reservationsRes] = await Promise.all([
-          api.get("/classrooms"),
-          api.get("/reservations"),
-        ]);
+  // 1. fetchData 現在使用 useCallback
+  const fetchData = useCallback(async () => {
+    try {
+      const [classroomsRes, reservationsRes] = await Promise.all([
+        api.get("/classrooms"),
+        api.get("/reservations"),
+      ]);
 
-        const formattedClassrooms = classroomsRes.data.map((c: any) => ({
-          ...c,
-          id: String(c.id),
-        }));
-        setClassrooms(formattedClassrooms);
-        if (formattedClassrooms.length > 0) {
-          setSelectedClassroomId(formattedClassrooms[0].id);
-        }
+      const formattedClassrooms = classroomsRes.data.map((c: any) => ({
+        ...c,
+        id: String(c.id),
+      }));
+      setClassrooms(formattedClassrooms);
 
-        const formattedReservations = reservationsRes.data.map((r: any) => ({
-          ...r,
-          id: String(r.id),
-          classroomId: String(r.classroomId),
-        }));
-        setReservations(formattedReservations);
-      } catch (error) {
-        console.error("Error fetching data:", error);
+      // 檢查是否需要設定預設教室
+      if (formattedClassrooms.length > 0 && !selectedClassroomId) {
+        setSelectedClassroomId(formattedClassrooms[0].id);
       }
-    };
 
+      // 2. 確保 formattedReservations 包含 userId
+      const formattedReservations = reservationsRes.data.map((r: any) => ({
+        id: String(r.id),
+        classroomId: String(r.classroomId),
+        userId: r.userId,
+        userNickname: r.userNickname,
+        purpose: r.purpose,
+        date: r.date,
+        timeSlot: r.timeSlot,
+      }));
+      setReservations(formattedReservations);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+    // 依賴 selectedClassroomId，以便在切換教室時... 不，fetchData 應該只載入一次
+    // 我們在 handleSelectClassroom 中已經清空 selectedSlots 了
+    // fetchData 應該只載入所有資料
+  }, []); // 保持空依賴，只在載入時執行一次
+
+  useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const selectedClassroom = useMemo(
     () => classrooms.find((c) => c.id === selectedClassroomId),
@@ -91,7 +101,6 @@ const MainPage: React.FC = () => {
     setIsModalOpen(false);
   };
 
-  // 預約函式 (與第七階段相同)
   const handleAddReservation = async (details: { purpose: string }) => {
     if (!selectedClassroomId || selectedSlots.length === 0) return;
 
@@ -114,14 +123,7 @@ const MainPage: React.FC = () => {
       alert("預約成功！");
       handleCloseModal();
       handleClearSelection();
-
-      const reservationsRes = await api.get("/reservations");
-      const formattedReservations = reservationsRes.data.map((r: any) => ({
-        ...r,
-        id: String(r.id),
-        classroomId: String(r.classroomId),
-      }));
-      setReservations(formattedReservations);
+      fetchData(); // 3. 預約成功後呼叫 fetchData 重新載入
     } catch (err: any) {
       console.error("Error creating reservation:", err);
       if (err.response && err.response.data && err.response.data.message) {
@@ -132,8 +134,22 @@ const MainPage: React.FC = () => {
     }
   };
 
+  // 4. 新增的 handleCancelReservation 函式
+  const handleCancelReservation = async (reservationId: string) => {
+    if (window.confirm("您確定要取消這個預約嗎？")) {
+      try {
+        await api.delete(`/reservations/${reservationId}`);
+        alert("預約已取消。");
+        fetchData(); // 取消成功後呼叫 fetchData 重新載d入
+      } catch (err: any) {
+        console.error("Error cancelling reservation:", err);
+        alert(`取消失敗： ${err.response?.data?.message || "未知錯誤"}`);
+      }
+    }
+  };
+
+  // 5. 確保 return 區塊在函式結尾
   return (
-    // ★★★ 這裡是最外層的 <main> ★★★
     <main className="max-w-7xl mx-auto w-full flex-grow min-h-0 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-col md:flex-row gap-6 h-full">
         <div className="md:w-1/3 lg:w-1/4 flex-shrink-0">
@@ -153,11 +169,11 @@ const MainPage: React.FC = () => {
             onConfirmBooking={handleOpenModal}
             onClearSelection={handleClearSelection}
             onDateChange={handleDateChange}
+            onCancelReservation={handleCancelReservation} // 6. 傳遞 prop
           />
         </div>
       </div>
 
-      {/* ★★★ 錯誤的 <main> 標籤已移除 ★★★ */}
       <BookingModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}

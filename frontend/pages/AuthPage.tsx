@@ -22,7 +22,7 @@ const AuthPage: React.FC = () => {
         ? { username, password }
         : { username, password, nickname }; // 註冊時才需要 nickname
 
-      const response = await api.post(endpoint, { username, password });
+      const response = await api.post(endpoint, data);
 
       if (isLoginView) {
         // 登入成功

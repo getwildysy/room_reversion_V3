@@ -1,11 +1,15 @@
 import React from "react";
 import { Classroom, Reservation } from "../types";
+// 1. 匯入 XCircleIcon
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CalendarIcon,
   CheckCircleIcon,
+  XCircleIcon,
 } from "./Icons";
+// 2. 匯入 useAuth
+import { useAuth } from "../AuthContext";
 
 type SelectedSlot = { date: Date; timeSlot: string };
 
@@ -18,6 +22,7 @@ interface ScheduleCalendarProps {
   onConfirmBooking: () => void;
   onClearSelection: () => void;
   onDateChange: (newDate: Date) => void;
+  onCancelReservation: (reservationId: string) => void; // 3. ★ 修正點：在這裡加入 prop
 }
 
 const timeSlots = [
@@ -56,7 +61,11 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   onConfirmBooking,
   onClearSelection,
   onDateChange,
+  onCancelReservation, // 4. 接收 prop
 }) => {
+  // 5. 取得目前登入的使用者
+  const { user } = useAuth();
+
   if (!classroom) {
     return (
       <div className="flex items-center justify-center h-full bg-white rounded-lg shadow-md">
@@ -85,7 +94,10 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     (r) => r.classroomId === classroom.id,
   );
 
-  const getReservationForSlot = (day: Date, timeSlot: string) => {
+  const getReservationForSlot = (
+    day: Date,
+    timeSlot: string,
+  ): Reservation | undefined => {
     const dateString = `${day.getFullYear()}-${(day.getMonth() + 1)
       .toString()
       .padStart(2, "0")}-${day.getDate().toString().padStart(2, "0")}`;
@@ -184,10 +196,16 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                 const isBooked = !!reservation;
                 const isSelected = isSlotSelected(day, slot.period);
 
+                // 6. 新增權限檢查
+                const canCancel =
+                  isBooked &&
+                  user &&
+                  (user.role === "admin" || user.id === reservation.userId);
+
                 return (
                   <div
                     key={dayIndex}
-                    className={`bg-white p-1 min-h-[80px] flex items-center justify-center text-center transition-colors relative
+                    className={`bg-white p-1 min-h-[80px] flex items-center justify-center text-center transition-colors relative group
                                   ${
                                     !isBooked &&
                                     "cursor-pointer hover:bg-blue-50"
@@ -197,10 +215,18 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                                       ? "ring-2 ring-blue-500 ring-inset"
                                       : ""
                                   }
+                                  ${
+                                    canCancel
+                                      ? "cursor-pointer hover:bg-red-50"
+                                      : ""
+                                  } 
                                 `}
+                    // 7. 修改 onClick 邏輯
                     onClick={
                       !isBooked
                         ? () => onToggleSlot(day, slot.period)
+                        : canCancel
+                        ? () => onCancelReservation(reservation.id)
                         : undefined
                     }
                   >
@@ -218,6 +244,13 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                         <p className="text-xs text-gray-600 mt-1">
                           {reservation.userNickname}
                         </p>
+
+                        {/* 8. 新增：顯示取消圖示 */}
+                        {canCancel && (
+                          <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <XCircleIcon className="w-5 h-5 text-red-500" />
+                          </div>
+                        )}
                       </div>
                     ) : isSelected ? (
                       <div className="flex flex-col items-center justify-center text-blue-600">
