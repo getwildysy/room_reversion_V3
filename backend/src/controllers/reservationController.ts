@@ -338,7 +338,7 @@ export const exportReservations = async (req: Request, res: Response) => {
       )
       .join("\n");
 
-    const csvData = csvHeader + csvBody;
+    const csvData = "\uFEFF" + csvHeader + csvBody;
 
     // 4. 設定 HTTP 標頭，強制瀏覽器下載
     // 加上 'charset=utf-8-sig' 是為了讓 Excel 正確開啟 UTF-8 (包含中文)
