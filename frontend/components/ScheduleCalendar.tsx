@@ -1,14 +1,13 @@
 import React from "react";
 import { Classroom, Reservation } from "../types";
-// 1. 匯入 XCircleIcon
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CalendarIcon,
   CheckCircleIcon,
   XCircleIcon,
+  SparklesIcon,
 } from "./Icons";
-// 2. 匯入 useAuth
 import { useAuth } from "../AuthContext";
 
 type SelectedSlot = { date: Date; timeSlot: string };
@@ -22,9 +21,11 @@ interface ScheduleCalendarProps {
   onConfirmBooking: () => void;
   onClearSelection: () => void;
   onDateChange: (newDate: Date) => void;
-  onCancelReservation: (reservationId: string) => void; // 3. ★ 修正點：在這裡加入 prop
+  onCancelReservation: (reservation: Reservation) => void;
+  onOpenBatchBooking: () => void;
 }
 
+// --- ★ 1. 補回遺失的輔助常數/函式 ★ ---
 const timeSlots = [
   { period: "第一節" },
   { period: "第二節" },
@@ -51,6 +52,7 @@ const getWeekDays = (date: Date): Date[] => {
     return newDate;
   });
 };
+// ----------------------------------------
 
 const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   classroom,
@@ -61,9 +63,9 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   onConfirmBooking,
   onClearSelection,
   onDateChange,
-  onCancelReservation, // 4. 接收 prop
+  onCancelReservation,
+  onOpenBatchBooking,
 }) => {
-  // 5. 取得目前登入的使用者
   const { user } = useAuth();
 
   if (!classroom) {
@@ -74,6 +76,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     );
   }
 
+  // --- ★ 2. 補回遺失的日期計算邏輯 ★ ---
   const weekDays = getWeekDays(date);
   const weekStart = weekDays[0];
   const weekEnd = weekDays[6];
@@ -89,6 +92,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     newDate.setDate(date.getDate() + amount * 7);
     onDateChange(newDate);
   };
+  // ------------------------------------
 
   const classroomReservations = reservations.filter(
     (r) => r.classroomId === classroom.id,
@@ -123,30 +127,45 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
   return (
     <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md h-full flex flex-col">
+      {/* --- Header 區塊 (包含 aria-label 修正) --- */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 border-b pb-4">
-        <div>
+        <div className="flex items-center space-x-2">
           <h2 className="text-2xl font-bold text-gray-800">{classroom.name}</h2>
+          {user?.role === "admin" && (
+            <button
+              onClick={onOpenBatchBooking}
+              className="p-1.5 rounded-full text-blue-600 bg-blue-100 hover:bg-blue-200"
+              aria-label="批次預約"
+            >
+              <SparklesIcon className="w-5 h-5" />
+            </button>
+          )}
         </div>
+
         <div className="flex items-center justify-between sm:justify-end space-x-2 mt-4 sm:mt-0">
           <button
-            onClick={() => changeWeek(-1)}
+            onClick={() => changeWeek(-1)} // ★ 3. 這裡的 changeWeek 現在是有效的
             className="p-2 rounded-full hover:bg-gray-200 transition"
+            aria-label="上一週"
           >
             <ChevronLeftIcon className="w-5 h-5 text-gray-600" />
           </button>
           <div className="flex items-center space-x-2 font-semibold text-gray-700 text-sm sm:text-base">
             <CalendarIcon className="w-5 h-5" />
-            <span>{formattedWeekRange}</span>
+            <span>{formattedWeekRange}</span>{" "}
+            {/* ★ 4. 這裡的 formattedWeekRange 也是有效的 */}
           </div>
           <button
-            onClick={() => changeWeek(1)}
+            onClick={() => changeWeek(1)} // ★ 5. 這裡的 changeWeek 也是有效的
             className="p-2 rounded-full hover:bg-gray-200 transition"
+            aria-label="下一週"
           >
             <ChevronRightIcon className="w-5 h-5 text-gray-600" />
           </button>
         </div>
       </div>
 
+      {/* ... (SelectedSlots 區塊不變) ... */}
       {selectedSlots.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-center justify-between transition-all duration-300">
           <p className="text-blue-800 font-semibold">
@@ -169,6 +188,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         </div>
       )}
 
+      {/* --- 日曆表格 (不變) --- */}
       <div className="flex-1 overflow-auto">
         <div className="grid grid-cols-[auto_repeat(7,1fr)] gap-px bg-gray-200">
           <div className="bg-gray-100 p-2 sticky top-0 left-0 z-20"></div>
@@ -196,7 +216,6 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                 const isBooked = !!reservation;
                 const isSelected = isSlotSelected(day, slot.period);
 
-                // 6. 新增權限檢查
                 const canCancel =
                   isBooked &&
                   user &&
@@ -221,12 +240,11 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                                       : ""
                                   } 
                                 `}
-                    // 7. 修改 onClick 邏輯
                     onClick={
                       !isBooked
                         ? () => onToggleSlot(day, slot.period)
-                        : canCancel
-                        ? () => onCancelReservation(reservation.id)
+                        : canCancel && reservation
+                        ? () => onCancelReservation(reservation)
                         : undefined
                     }
                   >
@@ -245,7 +263,15 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                           {reservation.userNickname}
                         </p>
 
-                        {/* 8. 新增：顯示取消圖示 */}
+                        {reservation.batch_id && user?.role === "admin" && (
+                          <div
+                            className="absolute top-1 left-1"
+                            title={`批次 ID: ${reservation.batch_id}`}
+                          >
+                            <SparklesIcon className="w-4 h-4 text-blue-500" />
+                          </div>
+                        )}
+
                         {canCancel && (
                           <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <XCircleIcon className="w-5 h-5 text-red-500" />

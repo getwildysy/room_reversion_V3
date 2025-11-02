@@ -1,8 +1,8 @@
 // backend/src/controllers/reservationController.ts
-
 import { Request, Response } from "express";
 import db from "../db";
 import { Knex } from "knex";
+import crypto from "crypto";
 
 // 預約資料的請求 body 型別
 interface ReservationBody {
@@ -30,6 +30,7 @@ export const getReservations = async (req: Request, res: Response) => {
         "reservations.purpose",
         "reservations.date",
         "reservations.time_slot as timeSlot",
+        "reservations.batch_id",
       );
 
     if (classroomId) {
@@ -168,7 +169,7 @@ export const createBatchReservation = async (req: Request, res: Response) => {
     startDate, // "YYYY-MM-DD"
     endDate, // "YYYY-MM-DD"
     timeSlots, // ["第一節", "第二節"]
-    excludedDays, // [0, 6] (0=週日, 6=週六)
+    weekdays, // [0, 6] (0=週日, 6=週六)
   } = req.body;
 
   if (
@@ -177,7 +178,7 @@ export const createBatchReservation = async (req: Request, res: Response) => {
     !startDate ||
     !endDate ||
     !timeSlots ||
-    !excludedDays
+    !weekdays
   ) {
     return res.status(400).json({ message: "缺少必要的欄位。" });
   }
@@ -199,22 +200,20 @@ export const createBatchReservation = async (req: Request, res: Response) => {
       const dayOfWeek = current.getDay(); // 0 (週日) - 6 (週六)
 
       // 檢查是否為被排除的星期
-      if (!excludedDays.includes(dayOfWeek)) {
+      if (weekdays.includes(dayOfWeek)) {
         const dateString = `${current.getFullYear()}-${(current.getMonth() + 1)
           .toString()
           .padStart(2, "0")}-${current.getDate().toString().padStart(2, "0")}`;
 
         for (const timeSlot of timeSlots) {
-          // 準備用於新增的資料
           reservationsToCreate.push({
-            user_id: adminUserId,
+            user_id: adminUserId, // 預約者/鎖定者 設為當前管理員
             classroom_id: classroomId,
-            purpose: purpose,
+            purpose: purpose, // 例如："系統鎖定" 或 "期中考試"
             date: dateString,
             time_slot: timeSlot,
-            batch_id: batchId, // 標記為同一個批次
+            batch_id: batchId,
           });
-          // 準備用於檢查衝突的資料
           conflictsCheck.push([dateString, timeSlot]);
         }
       }
@@ -242,7 +241,7 @@ export const createBatchReservation = async (req: Request, res: Response) => {
     if (existingReservations.length > 0) {
       // 發現衝突，回傳衝突的時段給管理者
       return res.status(409).json({
-        message: "無法建立批次預約，因為以下時段已被預約：",
+        message: "無法建立批次鎖定，因為以下時段已被預約：",
         conflicts: existingReservations,
       });
     }
@@ -255,14 +254,14 @@ export const createBatchReservation = async (req: Request, res: Response) => {
     res
       .status(201)
       .json({
-        message: `批次預約成功！總共新增了 ${reservationsToCreate.length} 筆預約。`,
+        message: `批次鎖定成功！總共鎖定了 ${reservationsToCreate.length} 筆時段。`,
         batchId,
-      });
+      }); // ★ 4. 修改提示文字
   } catch (err: any) {
     console.error("Error creating batch reservation:", err);
     res
       .status(500)
-      .json({ message: "建立批次預約時發生伺服器錯誤", error: err.message });
+      .json({ message: "建立批次鎖定時發生伺服器錯誤", error: err.message });
   }
 };
 

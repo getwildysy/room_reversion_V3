@@ -13,6 +13,7 @@ export interface Reservation {
   purpose: string;
   date: string; // YYYY-MM-DD format
   timeSlot: string; // e.g., "第一節"
+  batch_id?: string;
 }
 
 export interface User {
