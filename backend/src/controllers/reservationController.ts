@@ -158,3 +158,132 @@ export const deleteReservation = async (req: Request, res: Response) => {
       .json({ message: "Error deleting reservation", error: err.message });
   }
 };
+
+// POST /api/reservations/batch - 建立批次預約 (限管理者)
+export const createBatchReservation = async (req: Request, res: Response) => {
+  const adminUserId = req.user?.id;
+  const {
+    classroomId,
+    purpose,
+    startDate, // "YYYY-MM-DD"
+    endDate, // "YYYY-MM-DD"
+    timeSlots, // ["第一節", "第二節"]
+    excludedDays, // [0, 6] (0=週日, 6=週六)
+  } = req.body;
+
+  if (
+    !classroomId ||
+    !purpose ||
+    !startDate ||
+    !endDate ||
+    !timeSlots ||
+    !excludedDays
+  ) {
+    return res.status(400).json({ message: "缺少必要的欄位。" });
+  }
+  if (!adminUserId) {
+    return res.status(401).json({ message: "管理者未登入。" });
+  }
+
+  const batchId = crypto.randomUUID(); // 產生一個唯一的批次 ID
+  const reservationsToCreate: any[] = [];
+  const conflictsCheck: any[] = [];
+
+  try {
+    // --- 1. 產生所有日期和時段 ---
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    let current = new Date(start);
+
+    while (current <= end) {
+      const dayOfWeek = current.getDay(); // 0 (週日) - 6 (週六)
+
+      // 檢查是否為被排除的星期
+      if (!excludedDays.includes(dayOfWeek)) {
+        const dateString = `${current.getFullYear()}-${(current.getMonth() + 1)
+          .toString()
+          .padStart(2, "0")}-${current.getDate().toString().padStart(2, "0")}`;
+
+        for (const timeSlot of timeSlots) {
+          // 準備用於新增的資料
+          reservationsToCreate.push({
+            user_id: adminUserId,
+            classroom_id: classroomId,
+            purpose: purpose,
+            date: dateString,
+            time_slot: timeSlot,
+            batch_id: batchId, // 標記為同一個批次
+          });
+          // 準備用於檢查衝突的資料
+          conflictsCheck.push([dateString, timeSlot]);
+        }
+      }
+      // 前往下一天
+      current.setDate(current.getDate() + 1);
+    }
+
+    if (reservationsToCreate.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "在指定的日期範圍內，沒有可預約的時段。" });
+    }
+
+    // --- 2. 檢查衝突 (一次性檢查) ★ (這是你要求的提示功能) ★ ---
+    const existingReservations = await db("reservations")
+      .where({ classroom_id: classroomId })
+      .whereIn(["date", "time_slot"], conflictsCheck)
+      .join("users", "reservations.user_id", "users.id")
+      .select(
+        "reservations.date",
+        "reservations.time_slot as timeSlot",
+        "users.nickname as userNickname",
+      );
+
+    if (existingReservations.length > 0) {
+      // 發現衝突，回傳衝突的時段給管理者
+      return res.status(409).json({
+        message: "無法建立批次預約，因為以下時段已被預約：",
+        conflicts: existingReservations,
+      });
+    }
+
+    // --- 3. 執行批次新增 (使用交易) ---
+    await db.transaction(async (trx) => {
+      await trx("reservations").insert(reservationsToCreate);
+    });
+
+    res
+      .status(201)
+      .json({
+        message: `批次預約成功！總共新增了 ${reservationsToCreate.length} 筆預約。`,
+        batchId,
+      });
+  } catch (err: any) {
+    console.error("Error creating batch reservation:", err);
+    res
+      .status(500)
+      .json({ message: "建立批次預約時發生伺服器錯誤", error: err.message });
+  }
+};
+
+// DELETE /api/reservations/batch/:batch_id - 批次取消預約 (限管理者)
+export const deleteBatchReservation = async (req: Request, res: Response) => {
+  const { batch_id } = req.params;
+
+  try {
+    const count = await db("reservations").where({ batch_id: batch_id }).del();
+
+    if (count === 0) {
+      return res.status(404).json({ message: "找不到此批次 ID 的預約紀錄。" });
+    }
+
+    res
+      .status(200)
+      .json({ message: `批次預約已成功取消，共刪除了 ${count} 筆預約。` });
+  } catch (err: any) {
+    console.error("Error deleting batch reservation:", err);
+    res
+      .status(500)
+      .json({ message: "取消批次預約時發生伺服器錯誤", error: err.message });
+  }
+};
