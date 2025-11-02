@@ -26,7 +26,7 @@ const UserManager: React.FC<UserManagerProps> = ({
     setUsers(activeUsers);
   }, [activeUsers]);
 
-  // --- 使用者管理函式 (所有函式都在這裡) ---
+  // --- 使用者管理函式 ---
 
   const handleDeleteUser = async (userId: number) => {
     if (window.confirm("確定要刪除這位使用者嗎？")) {
@@ -46,6 +46,7 @@ const UserManager: React.FC<UserManagerProps> = ({
   ) => {
     if (window.confirm(`確定要將這位使用者變更為 ${newRole} 嗎？`)) {
       try {
+        // 使用我們通用的更新 API
         await api.put(`/users/${userId}`, { role: newRole });
         onDataChange();
       } catch (err: any) {
@@ -95,34 +96,39 @@ const UserManager: React.FC<UserManagerProps> = ({
     }
   };
 
-  // --- ★★★ 錯誤修正：在這裡加上遺漏的函式 ★★★ ---
+  // --- ★ 1. 新增：修改暱稱的函式 ★ ---
   const handleUpdateNickname = async (userId: number, oldNickname: string) => {
     const newNickname = window.prompt(
       `請輸入 "${oldNickname}" 的新暱稱：`,
       oldNickname,
     );
 
+    // 檢查使用者是否輸入了新的、非空的、且與舊的不同的暱稱
     if (
       newNickname &&
       newNickname.trim() !== "" &&
       newNickname !== oldNickname
     ) {
       try {
+        // 使用我們通用的更新 API
         await api.put(`/users/${userId}`, { nickname: newNickname });
         alert("暱稱更新成功。");
-        onDataChange();
+        onDataChange(); // 通知父元件重新載入資料
       } catch (err: any) {
         console.error("Error updating nickname:", err);
         alert(`暱稱更新失敗： ${err.response?.data?.message || "未知錯誤"}`);
       }
+    } else if (newNickname && newNickname.trim() === "") {
+      alert("暱稱不能為空。");
     }
+    // 如果 newNickname 是 null (按了取消) 或與舊的一樣，則不執行任何操作
   };
-  // ---------------------------------------------
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <h2 className="text-2xl font-semibold mb-4">已啟用使用者管理</h2>
 
+      {/* 建立使用者表單 */}
       <form onSubmit={handleCreateUser} className="mb-6 border-b pb-6">
         <h3 className="text-xl font-semibold mb-4">建立新使用者</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -204,13 +210,14 @@ const UserManager: React.FC<UserManagerProps> = ({
         </div>
       </form>
 
+      {/* 使用者列表 */}
       <h3 className="text-xl font-semibold mb-4">現有使用者列表</h3>
       <table className="w-full text-left">
         <thead>
           <tr className="border-b">
             <th className="py-2">ID</th>
-            <th className="py-2">使用者名稱</th>
-            <th className="py-2">暱稱</th>
+            <th className="py-2">使用者名稱1</th>
+            <th className="py-2">暱稱</th> {/* <-- ★ 2. 顯示暱稱欄位 ★ */}
             <th className="py-2">角色</th>
             <th className="py-2 text-right">操作</th>
           </tr>
@@ -220,7 +227,8 @@ const UserManager: React.FC<UserManagerProps> = ({
             <tr key={u.id} className="border-b">
               <td className="py-3">{u.id}</td>
               <td className="py-3">{u.username}</td>
-              <td className="py-3">{u.nickname}</td>
+              <td className="py-3">{u.nickname}</td>{" "}
+              {/* <-- ★ 3. 顯示暱稱內容 ★ */}
               <td className="py-3">
                 <span
                   className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -251,6 +259,7 @@ const UserManager: React.FC<UserManagerProps> = ({
                       </button>
                     )}
 
+                    {/* --- ★ 4. 新增：修改暱稱按鈕 ★ --- */}
                     <button
                       onClick={() => handleUpdateNickname(u.id, u.nickname)}
                       className="px-3 py-1 text-sm bg-purple-500 text-white rounded-md hover:bg-purple-600"
