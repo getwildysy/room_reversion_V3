@@ -50,7 +50,7 @@ const AuthPage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-md">
         <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
-          專科教室借用系統
+          新明國中專科教室預約系統
         </h1>
 
         <div className="mb-4 flex border-b">

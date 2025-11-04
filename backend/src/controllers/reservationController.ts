@@ -251,12 +251,10 @@ export const createBatchReservation = async (req: Request, res: Response) => {
       await trx("reservations").insert(reservationsToCreate);
     });
 
-    res
-      .status(201)
-      .json({
-        message: `批次鎖定成功！總共鎖定了 ${reservationsToCreate.length} 筆時段。`,
-        batchId,
-      }); // ★ 4. 修改提示文字
+    res.status(201).json({
+      message: `批次鎖定成功！總共鎖定了 ${reservationsToCreate.length} 筆時段。`,
+      batchId,
+    }); // ★ 4. 修改提示文字
   } catch (err: any) {
     console.error("Error creating batch reservation:", err);
     res
@@ -284,5 +282,78 @@ export const deleteBatchReservation = async (req: Request, res: Response) => {
     res
       .status(500)
       .json({ message: "取消批次預約時發生伺服器錯誤", error: err.message });
+  }
+};
+
+// GET /api/reservations/export - 匯出預約紀錄 (限管理者)
+export const exportReservations = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate, classroomId } = req.query as {
+      startDate: string;
+      endDate: string;
+      classroomId: string; // 'all' 或 教室 ID
+    };
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: "必須提供開始日期和結束日期。" });
+    }
+
+    // 1. 建立 Knex 查詢
+    let query = db("reservations")
+      .join("users", "reservations.user_id", "users.id")
+      .join("classrooms", "reservations.classroom_id", "classrooms.id")
+      .where("reservations.date", ">=", startDate)
+      .where("reservations.date", "<=", endDate)
+      .select(
+        "reservations.date",
+        "reservations.time_slot",
+        "classrooms.name as classroomName",
+        "users.nickname as userNickname",
+        "reservations.purpose",
+      )
+      .orderBy("reservations.date", "asc")
+      .orderBy("reservations.time_slot", "asc");
+
+    // 2. 處理特定教室篩選
+    if (classroomId && classroomId !== "all") {
+      query = query.where("reservations.classroom_id", Number(classroomId));
+    }
+
+    const records: any[] = await query;
+
+    // 3. 將 JSON 轉換為 CSV 字串
+    if (records.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "在指定範圍內找不到任何預約紀錄。" });
+    }
+
+    const csvHeader = '"日期","時段","教室","借用人(暱稱)","事由"\n';
+    const csvBody = records
+      .map(
+        (row) =>
+          `"${row.date}","${row.time_slot}","${row.classroomName}","${
+            row.userNickname
+          }","${row.purpose.replace(/"/g, '""')}"`,
+      )
+      .join("\n");
+
+    const csvData = "\uFEFF" + csvHeader + csvBody;
+
+    // 4. 設定 HTTP 標頭，強制瀏覽器下載
+    // 加上 'charset=utf-8-sig' 是為了讓 Excel 正確開啟 UTF-8 (包含中文)
+    res.header("Content-Type", "text/csv; charset=utf-8-sig");
+    res.header(
+      "Content-Disposition",
+      `attachment; filename="reservations_${startDate}_to_${endDate}.csv"`,
+    );
+
+    // 5. 回傳 CSV 檔案
+    res.status(200).send(csvData);
+  } catch (err: any) {
+    console.error("Error exporting reservations:", err);
+    res
+      .status(500)
+      .json({ message: "匯出時發生伺服器錯誤", error: err.message });
   }
 };

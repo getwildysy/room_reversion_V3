@@ -17,7 +17,7 @@ const Header: React.FC = () => {
         <div className="flex justify-between items-center">
           {/* 4. 將標題變成一個 Link，點擊可回首頁 */}
           <Link to="/" className="text-2xl font-bold text-gray-900">
-            專科教室借用系統
+            新明國中專科教室預約系統
           </Link>
 
           <div className="flex items-center space-x-4">

@@ -8,6 +8,7 @@ import { Navigate } from "react-router-dom";
 import PendingUsers from "../components/admin/PendingUsers";
 import ClassroomManager from "../components/admin/ClassroomManager";
 import UserManager from "../components/admin/UserManager";
+import ReservationExporter from "../components/admin/ReservationExporter";
 
 const AdminPage: React.FC = () => {
   const { user } = useAuth();
@@ -61,6 +62,7 @@ const AdminPage: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">管理後台</h1>
+      <ReservationExporter classrooms={classrooms} />
 
       {/* 1. 待審核的使用者 */}
       <PendingUsers pendingUsers={pendingUsers} onDataChange={fetchData} />

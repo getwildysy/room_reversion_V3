@@ -182,7 +182,7 @@ const MainPage: React.FC = () => {
   // 4. 確保 return 區塊在函式結尾
   return (
     <main className="max-w-7xl mx-auto w-full flex-grow min-h-0 py-6 sm:px-6 lg:px-8">
-      <div className="flex flex-col md:flex-row gap-6 h-full">
+      <div className="flex flex-col md:flex-row gap-6 md:h-full">
         <div className="md:w-1/3 lg:w-1/4 flex-shrink-0">
           <ClassroomList
             classrooms={classrooms}
