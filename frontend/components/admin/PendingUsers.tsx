@@ -1,6 +1,7 @@
 import React from "react";
 import { User } from "../../types";
 import api from "../../api";
+import toast from "react-hot-toast";
 
 interface PendingUsersProps {
   pendingUsers: User[];
@@ -18,7 +19,7 @@ const PendingUsers: React.FC<PendingUsersProps> = ({
         onDataChange(); // 通知父元件
       } catch (err: any) {
         console.error("Error approving user:", err);
-        alert(`批准失敗： ${err.response?.data?.message || "未知錯誤"}`);
+        toast.error(`批准失敗： ${err.response?.data?.message || "未知錯誤"}`);
       }
     }
   };
@@ -30,7 +31,7 @@ const PendingUsers: React.FC<PendingUsersProps> = ({
         onDataChange(); // 通知父元件
       } catch (err: any) {
         console.error("Error deleting user:", err);
-        alert(`刪除失敗： ${err.response?.data?.message || "未知錯誤"}`);
+        toast.error(`刪除失敗： ${err.response?.data?.message || "未知錯誤"}`);
       }
     }
   };

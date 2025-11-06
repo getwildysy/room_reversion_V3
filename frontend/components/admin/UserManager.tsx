@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { User } from "../../types";
 import api from "../../api";
 import { useAuth } from "../../AuthContext";
+import toast from "react-hot-toast";
 
 interface UserManagerProps {
   activeUsers: User[];
@@ -32,10 +33,11 @@ const UserManager: React.FC<UserManagerProps> = ({
     if (window.confirm("確定要刪除這位使用者嗎？")) {
       try {
         await api.delete(`/users/${userId}`);
+        toast.success("使用者已刪除");
         onDataChange();
       } catch (err: any) {
         console.error("Error deleting user:", err);
-        alert(`刪除失敗： ${err.response?.data?.message || "未知錯誤"}`);
+        toast.error(`刪除失敗： ${err.response?.data?.message || "未知錯誤"}`);
       }
     }
   };
@@ -48,10 +50,11 @@ const UserManager: React.FC<UserManagerProps> = ({
       try {
         // 使用我們通用的更新 API
         await api.put(`/users/${userId}`, { role: newRole });
+        toast.success("使用者變更成功");
         onDataChange();
       } catch (err: any) {
         console.error("Error changing user role:", err);
-        alert(`變更失敗： ${err.response?.data?.message || "未知錯誤"}`);
+        toast.error(`變更失敗： ${err.response?.data?.message || "未知錯誤"}`);
       }
     }
   };
@@ -59,7 +62,7 @@ const UserManager: React.FC<UserManagerProps> = ({
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUsername || !newPassword || !newNickname) {
-      alert("使用者名稱、密碼和暱稱為必填項。");
+      toast.error("使用者名稱、密碼和暱稱為必填項。");
       return;
     }
     try {
@@ -69,7 +72,7 @@ const UserManager: React.FC<UserManagerProps> = ({
         role: newRole,
         nickname: newNickname,
       });
-      alert("使用者建立成功！");
+      toast.success("使用者建立成功！");
       setNewUsername("");
       setNewPassword("");
       setNewNickname("");
@@ -77,7 +80,7 @@ const UserManager: React.FC<UserManagerProps> = ({
       onDataChange();
     } catch (err: any) {
       console.error("Error creating user:", err);
-      alert(`建立失敗： ${err.response?.data?.message || "未知錯誤"}`);
+      toast.error(`建立失敗： ${err.response?.data?.message || "未知錯誤"}`);
     }
   };
 
@@ -86,13 +89,15 @@ const UserManager: React.FC<UserManagerProps> = ({
     if (newPassword && newPassword.trim() !== "") {
       try {
         await api.put(`/users/${userId}/password`, { password: newPassword });
-        alert(`使用者 "${username}" 的密碼已成功重設。`);
+        toast.success(`使用者 "${username}" 的密碼已成功重設。`);
       } catch (err: any) {
         console.error("Error resetting password:", err);
-        alert(`密碼重設失敗： ${err.response?.data?.message || "未知錯誤"}`);
+        toast.error(
+          `密碼重設失敗： ${err.response?.data?.message || "未知錯誤"}`,
+        );
       }
     } else if (newPassword !== null) {
-      alert("密碼不能為空。");
+      toast.error("密碼不能為空。");
     }
   };
 
@@ -112,14 +117,16 @@ const UserManager: React.FC<UserManagerProps> = ({
       try {
         // 使用我們通用的更新 API
         await api.put(`/users/${userId}`, { nickname: newNickname });
-        alert("暱稱更新成功。");
+        toast.success("暱稱更新成功。");
         onDataChange(); // 通知父元件重新載入資料
       } catch (err: any) {
         console.error("Error updating nickname:", err);
-        alert(`暱稱更新失敗： ${err.response?.data?.message || "未知錯誤"}`);
+        toast.error(
+          `暱稱更新失敗： ${err.response?.data?.message || "未知錯誤"}`,
+        );
       }
     } else if (newNickname && newNickname.trim() === "") {
-      alert("暱稱不能為空。");
+      toast.error("暱稱不能為空。");
     }
     // 如果 newNickname 是 null (按了取消) 或與舊的一樣，則不執行任何操作
   };

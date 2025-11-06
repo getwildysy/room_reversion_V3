@@ -5,6 +5,7 @@ import Header from "./components/Header";
 import AuthPage from "./pages/AuthPage";
 import AdminPage from "./pages/AdminPage";
 import MainPage from "./pages/MainPage";
+import { Toaster } from "react-hot-toast";
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { user } = useAuth();
@@ -40,6 +41,48 @@ const App: React.FC = () => {
   return (
     <div className="h-screen bg-gray-100 flex flex-col">
       <Header />
+
+      <Toaster
+        position="top-center"
+        reverseOrder={false}
+        // 2. 設定 toastOptions 來自訂樣式
+        toastOptions={{
+          // A. 設定預設持續時間 (例如 4 秒)
+          duration: 4000,
+
+          // B. 全域樣式 (放大字體和 padding，使其更明顯)
+          style: {
+            background: "#363636", // 深色背景
+            color: "#fff", // 白色文字
+            padding: "16px", // 增加 padding
+            fontSize: "16px", // 放大字體
+            borderRadius: "8px",
+            minWidth: "250px", // 確保最小寬度
+          },
+
+          // C. 針對 "成功" 通知的特定樣式
+          success: {
+            style: {
+              background: "#10B981", // 綠色
+            },
+            iconTheme: {
+              primary: "#fff",
+              secondary: "#10B981",
+            },
+          },
+
+          // D. 針對 "失敗" 通知的特定樣式
+          error: {
+            style: {
+              background: "#EF4444", // 紅色
+            },
+            iconTheme: {
+              primary: "#fff",
+              secondary: "#EF4444",
+            },
+          },
+        }}
+      />
 
       <Routes>
         {/* ★★★ 修改 2: 檢查 user 是否存在 ★★★ */}

@@ -6,6 +6,7 @@ import ScheduleCalendar from "../components/ScheduleCalendar";
 import BookingModal from "../components/BookingModal";
 import BatchBookingModal from "../components/BatchBookingModal";
 import { useAuth } from "../AuthContext";
+import toast from "react-hot-toast";
 
 type SelectedSlot = { date: Date; timeSlot: string };
 
@@ -122,16 +123,16 @@ const MainPage: React.FC = () => {
     };
     try {
       await api.post("/reservations", reservationData);
-      alert("預約成功！");
+      toast.success("預約成功！");
       handleCloseModal();
       handleClearSelection();
       fetchData(); // 預約成功後呼叫 fetchData 重新載入
     } catch (err: any) {
       console.error("Error creating reservation:", err);
       if (err.response && err.response.data && err.response.data.message) {
-        alert(`預約失敗： ${err.response.data.message}`);
+        toast.error(`預約失敗： ${err.response.data.message}`);
       } else {
-        alert("預約失敗，請稍後再試。");
+        toast.error("預約失敗，請稍後再試。");
       }
     }
   };
@@ -156,11 +157,11 @@ const MainPage: React.FC = () => {
     if (window.confirm(confirmText)) {
       try {
         await api.delete(deleteUrl);
-        alert("預約已取消。");
+        toast.error("預約已取消。");
         fetchData(); // 取消成功後呼叫 fetchData 重新載入
       } catch (err: any) {
         console.error("Error cancelling reservation:", err);
-        alert(`取消失敗： ${err.response?.data?.message || "未知錯誤"}`);
+        toast.error(`取消失敗： ${err.response?.data?.message || "未知錯誤"}`);
       }
     }
   };
