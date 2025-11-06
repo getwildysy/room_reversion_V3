@@ -1,19 +1,20 @@
 import React, { useState } from "react";
 import { useAuth } from "../AuthContext"; // 匯入我們的 Auth Hook
 import api from "../api"; // 匯入我們的 api 實例
+import toast from "react-hot-toast";
 
 const AuthPage: React.FC = () => {
   const [isLoginView, setIsLoginView] = useState(true);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [nickname, setNickname] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // const [error, setError] = useState<string | null>(null);
 
   const { login } = useAuth(); // 從 Context 取得 login 函式
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null); // 清除舊錯誤
+    // setError(null); // 清除舊錯誤
 
     const endpoint = isLoginView ? "/auth/login" : "/auth/register";
 
@@ -31,16 +32,22 @@ const AuthPage: React.FC = () => {
       } else {
         // 註冊成功
         // ★★★ 修改：註冊成功後的提示訊息 ★★★
-        alert("註冊成功！您的帳號正在等待管理者審核，請耐心等候。");
+        // alert("註冊成功！您的帳號正在等待管理者審核，請耐心等候。");
+        toast.success("註冊成功！您的帳號正在等待管理者審核。");
+        // setIsLoginView(true);
         setUsername("");
         setPassword("");
         setNickname("");
       }
     } catch (err: any) {
       if (err.response && err.response.data && err.response.data.message) {
-        setError(err.response.data.message);
+        if (err.response.data.message === "Invalid credentials.") {
+          toast.error("帳號或密碼錯誤"); // <-- ★ 6. 使用 toast.error
+        } else {
+          toast.error(err.response.data.message); // <-- ★ 7. 使用 toast.error
+        }
       } else {
-        setError("發生未知錯誤，請稍後再試。");
+        toast.error("發生未知錯誤，請稍後再試。"); // <-- ★ 8. 使用 toast.error
       }
       console.error(err);
     }
@@ -132,9 +139,9 @@ const AuthPage: React.FC = () => {
             />
           </div>
 
-          {error && (
+          {/* {error && (
             <div className="text-red-600 text-sm text-center">{error}</div>
-          )}
+          )} */}
 
           <button
             type="submit"

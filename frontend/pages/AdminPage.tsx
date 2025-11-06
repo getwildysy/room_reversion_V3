@@ -3,6 +3,7 @@ import { Classroom, User } from "../types";
 import api from "../api";
 import { useAuth } from "../AuthContext";
 import { Navigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 // 1. 匯入我們的新元件
 import PendingUsers from "../components/admin/PendingUsers";
@@ -50,7 +51,7 @@ const AdminPage: React.FC = () => {
 
   // 權限檢查
   if (user?.role !== "admin") {
-    alert("權限不足！");
+    toast.error("權限不足！");
     return <Navigate to="/" replace />;
   }
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Classroom } from "../../types";
 import api from "../../api";
+import toast from "react-hot-toast";
 
 interface ClassroomManagerProps {
   initialClassrooms: Classroom[];
@@ -45,7 +46,7 @@ const ClassroomManager: React.FC<ClassroomManagerProps> = ({
       onDataChange(); // 通知父元件
     } catch (error) {
       console.error("Error saving classroom:", error);
-      alert("儲存失敗！");
+      toast.error("儲存失敗！");
     }
   };
 
@@ -56,7 +57,7 @@ const ClassroomManager: React.FC<ClassroomManagerProps> = ({
         onDataChange(); // 通知父元件
       } catch (error) {
         console.error("Error deleting classroom:", error);
-        alert("刪除失敗！");
+        toast.error("刪除失敗！");
       }
     }
   };
